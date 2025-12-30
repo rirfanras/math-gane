@@ -51,48 +51,49 @@ const achievementsList = [
 
 // --- SCREEN NAVIGATION ---
 const showScreen = (screenId) => {
+    // Jika kembali ke menu, matikan musik
+    if (screenId === 'screen-menu') {
+        stopAudio();
+    }
+
     document.querySelectorAll('[id^="screen-"]').forEach(el => el.classList.add('hidden-screen'));
     const target = $(screenId);
     if(target) target.classList.remove('hidden-screen');
 };
 
-// --- AUDIO LOGIC (SAFE MODE) ---
+// --- AUDIO LOGIC ---
 function startAudio() {
-    // Ambil elemen audio secara dinamis (Lazy fetch) untuk menghindari error null di awal
     const bgAudio = document.getElementById('bg-music');
-    
-    if (!bgAudio) {
-        console.warn("Element audio tidak ditemukan di HTML");
-        return;
+    if (!bgAudio) return;
+
+    // Load saved volume
+    const savedVol = localStorage.getItem('mm_volume');
+    if(savedVol !== null) {
+        bgAudio.volume = parseFloat(savedVol);
+        const slider = $('volume-slider');
+        if(slider) slider.value = savedVol;
+        updateVolumeUI(savedVol);
+    } else {
+        bgAudio.volume = 0.5;
     }
 
-    if (!audioStarted) {
-        bgAudio.volume = 0.5; // Default volume
-        
-        // Load saved volume
-        const savedVol = localStorage.getItem('mm_volume');
-        if(savedVol !== null) {
-            bgAudio.volume = parseFloat(savedVol);
-            const slider = $('volume-slider');
-            if(slider) slider.value = savedVol;
-            updateVolumeUI(savedVol);
-        }
+    // Play Audio
+    const playPromise = bgAudio.play();
+    if (playPromise !== undefined) {
+        playPromise.then(() => {
+            audioStarted = true;
+        }).catch(error => {
+            console.log("Audio autoplay dicegah browser:", error);
+        });
+    }
+}
 
-        // COBA PUTAR, TAPI JANGAN CRASH JIKA GAGAL
-        const playPromise = bgAudio.play();
-
-        if (playPromise !== undefined) {
-            playPromise.then(() => {
-                // Audio berhasil diputar
-                audioStarted = true;
-                console.log("Audio playing");
-            }).catch(error => {
-                // Audio diblokir browser (Autoplay Policy). 
-                // Ini NORMAL jika user belum klik apapun. Jangan biarkan ini menghentikan script.
-                console.log("Audio autoplay dicegah browser. Menunggu interaksi user.");
-                audioStarted = false; 
-            });
-        }
+function stopAudio() {
+    const bgAudio = document.getElementById('bg-music');
+    if (bgAudio) {
+        bgAudio.pause();
+        bgAudio.currentTime = 0; // Reset ke awal
+        audioStarted = false;
     }
 }
 
@@ -105,10 +106,7 @@ function updateVolume(val) {
     const bgAudio = document.getElementById('bg-music');
     if (bgAudio) {
         bgAudio.volume = val;
-        // Jika audio belum jalan karena autoplay block, paksa jalan saat user geser slider
-        if (!audioStarted) {
-            bgAudio.play().then(() => audioStarted = true).catch(() => {});
-        }
+        // Kita HAPUS logika auto-play di sini agar musik tidak nyala sendiri saat geser slider di menu
     }
     updateVolumeUI(val);
     localStorage.setItem('mm_volume', val);
@@ -125,11 +123,9 @@ async function initAuth() {
     if (!auth) return stopLoading();
 
     try {
-        // Cek token bawaan (untuk environment khusus)
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
             await auth.signInWithCustomToken(__initial_auth_token);
         } else {
-            // Hanya login anonim jika belum ada user
             if (!auth.currentUser) {
                 await auth.signInAnonymously();
             }
@@ -137,45 +133,26 @@ async function initAuth() {
     } catch (error) {
         console.warn("Auth warning:", error);
     } finally {
-        // PENTING: Apa pun yang terjadi, matikan loading screen!
         stopLoading();
     }
 }
 
-// Helper untuk mematikan loading
 function stopLoading() {
     const loader = $('loadingOverlay');
     if (loader) loader.classList.add('hidden');
-    
-    // Failsafe: Jika loader masih ada setelah 500ms, paksa hilang
     setTimeout(() => {
         if(loader && !loader.classList.contains('hidden')) loader.classList.add('hidden');
     }, 500);
 }
 
-// Event Listener auth state
 if (auth) {
     auth.onAuthStateChanged((user) => {
-        if (user) {
-            // User login/terdeteksi
-            // Cek apakah data user ada di DB untuk menentukan role
-            checkUserProfile(user);
-        } else {
-            // User logout
+        if (!user) {
             showScreen('screen-auth');
         }
-        stopLoading(); // Pastikan loading hilang setiap status berubah
+        stopLoading();
     });
 }
-
-async function checkUserProfile(firebaseUser) {
-    // Jika anonymous auth tanpa profil DB (Guest fresh)
-    if (firebaseUser.isAnonymous && !currentUser) {
-         // Kita anggap sementara guest sampai user login beneran
-         // Tapi karena struktur kode sebelumnya manual, kita biarkan logic handleLogin menangani
-    }
-}
-
 
 async function handleRegister() {
     const u = $('auth-username').value.trim();
@@ -223,7 +200,6 @@ async function handleLogin() {
     $('loadingOverlay').classList.remove('hidden');
 
     try {
-        // Cek DB manual (simulasi login via Firestore query)
         const userRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('users');
         const snapshot = await userRef.where('username', '==', u).where('password', '==', p).get();
 
@@ -257,9 +233,7 @@ function startGuestMode() {
 }
 
 function loginSuccess() {
-    // Mencoba memutar audio. 
-    // Karena fungsi ini dipanggil setelah klik tombol (Login/Guest), kemungkinan besar browser mengizinkan audio.
-    startAudio(); 
+    // startAudio() DIHAPUS dari sini agar menu hening
 
     $('display-username').innerText = currentUser.username;
     $('user-role-badge').innerText = currentUser.role === 'admin' ? 'Administrator' : (currentUser.isGuest ? 'Mode Tamu' : 'Pemain Terdaftar');
@@ -281,11 +255,9 @@ function handleLogout() {
     $('auth-username').value = '';
     $('auth-password').value = '';
     $('auth-message').innerText = '';
+    
+    stopAudio(); // Pastikan mati saat logout
     showScreen('screen-auth');
-    // Opsional: Matikan musik saat logout
-    // const bgAudio = document.getElementById('bg-music');
-    // if(bgAudio) bgAudio.pause();
-    // audioStarted = false;
 }
 
 function showAuthError(msg) {
@@ -300,8 +272,6 @@ function showAuthError(msg) {
 
 function showGameSetup() {
     showScreen('screen-setup');
-    // Pastikan audio jalan lagi (berjaga-jaga jika autoplay block saat login)
-    startAudio();
 }
 
 function selectDifficulty(diff, btn) {
@@ -316,19 +286,30 @@ function selectDifficulty(diff, btn) {
 
 function startGame() {
     gameData.type = $('game-type').value;
-    gameData.timer = 60;
+    
+    // ATUR WAKTU BERDASARKAN KESULITAN
+    const timers = {
+        'easy': 60,
+        'medium': 90,
+        'hard': 120
+    };
+    gameData.timer = timers[gameData.difficulty] || 60;
+
     gameData.score = 0;
     gameData.correct = 0;
     gameData.wrong = 0;
     gameData.active = true;
 
     $('game-score').innerText = '0';
-    $('game-timer').innerText = '60';
+    $('game-timer').innerText = gameData.timer;
     $('answer-display').innerText = '';
     $('feedback-msg').innerText = '';
 
     showScreen('screen-game');
     generateQuestion();
+    
+    // MULAI AUDIO DI SINI
+    startAudio();
     
     // Start Timer
     if (gameData.timerInterval) clearInterval(gameData.timerInterval);
@@ -337,9 +318,6 @@ function startGame() {
         $('game-timer').innerText = gameData.timer;
         if (gameData.timer <= 0) endGame();
     }, 1000);
-    
-    // Satu lagi upaya play audio, karena tombol "Mulai" adalah interaksi user yang kuat
-    startAudio();
 }
 
 function generateQuestion() {
@@ -432,6 +410,8 @@ function submitAnswer() {
 function endGame() {
     clearInterval(gameData.timerInterval);
     gameData.active = false;
+    
+    stopAudio(); // Matikan musik saat game selesai
     
     $('final-score').innerText = gameData.score;
     $('final-correct').innerText = gameData.correct;
