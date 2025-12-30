@@ -1,23 +1,46 @@
+// --- SAFEGUARDS & UTILS ---
+const $ = (id) => document.getElementById(id);
+
+// Failsafe: Paksa hilangkan loading screen setelah 3 detik jika macet
+setTimeout(() => {
+    const loader = $('loadingOverlay');
+    if (loader && !loader.classList.contains('hidden')) {
+        console.warn("Loading terlalu lama, memaksa masuk...");
+        loader.classList.add('hidden');
+    }
+}, 3000);
+
 // --- CONFIGURATION ---
-const firebaseConfig = {
-  apiKey: "AIzaSyBvd0MSxwgvYA9XJTOy9_kDCMsBhD6Cuus",
-  authDomain: "mathmaster-fnzyz.firebaseapp.com",
-  projectId: "mathmaster-fnzyz",
-  storageBucket: "mathmaster-fnzyz.firebasestorage.app",
-  messagingSenderId: "669657651884",
-  appId: "1:669657651884:web:32315bf8ef9bbbfdac9d09"
-};
-const app = firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore(app);
+// Gunakan try-catch block global untuk inisialisasi agar script tidak mati total jika ada error
+let app, auth, db;
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-// --- AUDIO CONFIGURATION ---
-const bgAudio = document.getElementById('bg-music.mp3');
-let audioStarted = false;
+try {
+    const firebaseConfig = {
+      apiKey: "AIzaSyBvd0MSxwgvYA9XJTOy9_kDCMsBhD6Cuus",
+      authDomain: "mathmaster-fnzyz.firebaseapp.com",
+      projectId: "mathmaster-fnzyz",
+      storageBucket: "mathmaster-fnzyz.firebasestorage.app",
+      messagingSenderId: "669657651884",
+      appId: "1:669657651884:web:32315bf8ef9bbbfdac9d09"
+    };
+    
+    // Cek apakah Firebase SDK termuat
+    if (typeof firebase !== 'undefined') {
+        app = firebase.initializeApp(firebaseConfig);
+        auth = firebase.auth();
+        db = firebase.firestore(app);
+    } else {
+        console.error("Firebase SDK tidak ditemukan!");
+        alert("Gagal memuat sistem game. Cek koneksi internet Anda.");
+    }
+} catch (error) {
+    console.error("Error Konfigurasi:", error);
+}
 
 // --- STATE MANAGEMENT ---
-let currentUser = null; // { id, username, role, isGuest }
+let currentUser = null; 
+let audioStarted = false;
 let gameData = {
     active: false,
     timer: 60,
@@ -37,66 +60,76 @@ const achievementsList = [
     { id: 'veteran', title: 'Veteran', desc: 'Mainkan 10 game', req: (stats) => stats.gamesPlayed >= 10 }
 ];
 
-// --- DOM HELPER ---
-const $ = (id) => document.getElementById(id);
+// --- SCREEN NAVIGATION ---
 const showScreen = (screenId) => {
     document.querySelectorAll('[id^="screen-"]').forEach(el => el.classList.add('hidden-screen'));
-    $(screenId).classList.remove('hidden-screen');
+    const target = $(screenId);
+    if(target) target.classList.remove('hidden-screen');
 };
 
-// --- AUDIO LOGIC ---
+// --- AUDIO LOGIC (SAFE) ---
 function startAudio() {
-    if (!audioStarted) {
-        // Browser requires user interaction to play audio
-        bgAudio.volume = 0.5; // Default volume 50%
-        bgAudio.play().then(() => {
-            audioStarted = true;
-            // Load saved volume if exists
-            const savedVol = localStorage.getItem('mm_volume');
-            if(savedVol !== null) {
-                updateVolume(savedVol);
-                $('volume-slider').value = savedVol;
-            }
-        }).catch(e => {
-            console.log("Audio autoplay blocked, waiting for interaction.");
-        });
+    const bgAudio = $('bg-music');
+    // Cek apakah elemen audio ada sebelum mengaksesnya
+    if (bgAudio && !audioStarted) {
+        bgAudio.volume = 0.5;
+        
+        // Play audio dengan catch error agar tidak memblokir program
+        const playPromise = bgAudio.play();
+        
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                audioStarted = true;
+                // Load saved volume
+                const savedVol = localStorage.getItem('mm_volume');
+                if(savedVol !== null) {
+                    updateVolume(savedVol);
+                    const slider = $('volume-slider');
+                    if(slider) slider.value = savedVol;
+                }
+            }).catch(error => {
+                console.log("Audio autoplay dicegah browser (normal sampai user interaksi):", error);
+            });
+        }
     }
 }
 
 function toggleSettings() {
     const modal = $('settings-overlay');
-    if (modal.classList.contains('hidden-screen')) {
-        modal.classList.remove('hidden-screen');
-    } else {
-        modal.classList.add('hidden-screen');
+    if (modal) {
+        modal.classList.toggle('hidden-screen');
     }
 }
 
 function updateVolume(val) {
-    bgAudio.volume = val;
-    $('volume-value').innerText = Math.round(val * 100) + '%';
+    const bgAudio = $('bg-music');
+    if (bgAudio) {
+        bgAudio.volume = val;
+    }
+    const volVal = $('volume-value');
+    if(volVal) volVal.innerText = Math.round(val * 100) + '%';
     localStorage.setItem('mm_volume', val);
 }
 
 // --- AUTHENTICATION LOGIC ---
 
 async function initAuth() {
-    // UPDATED: Menggunakan try-catch-finally agar loading screen selalu hilang
+    if (!auth) return; // Stop jika firebase error
+
     try {
+        // Cek token bawaan lingkungan pengembangan
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
             await auth.signInWithCustomToken(__initial_auth_token);
         } else {
-            // Cek apakah user sudah login sebelumnya untuk menghindari sign-in berulang
+            // Hanya sign-in jika belum ada user
             if (!auth.currentUser) {
                 await auth.signInAnonymously();
             }
         }
     } catch (error) {
-        console.error("Gagal inisialisasi Auth:", error);
-        // Opsional: Tampilkan pesan error di layar jika perlu
-        showAuthError("Koneksi bermasalah. Mode offline aktif.");
+        console.warn("Auth issue (Offline Mode?):", error);
     } finally {
-        // Pastikan overlay loading SELALU hilang, apapun yang terjadi
+        // SELALU hilangkan loading screen
         const loader = $('loadingOverlay');
         if (loader) loader.classList.add('hidden');
     }
@@ -112,7 +145,6 @@ async function handleRegister() {
     $('loadingOverlay').classList.remove('hidden');
 
     try {
-        // Check if username exists in 'users' collection
         const userRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('users');
         const snapshot = await userRef.where('username', '==', u).get();
 
@@ -120,11 +152,10 @@ async function handleRegister() {
             throw new Error("Username sudah dipakai.");
         }
 
-        // Create User
         const newUser = {
             username: u,
-            password: p, // In real app, hash this! For demo, plain text.
-            role: u.toLowerCase() === 'admin' ? 'admin' : 'user', // Backdoor admin for demo
+            password: p, 
+            role: u.toLowerCase() === 'admin' ? 'admin' : 'user',
             createdAt: new Date().toISOString(),
             gamesPlayed: 0,
             highScore: 0,
@@ -182,16 +213,18 @@ function startGuestMode() {
 }
 
 function loginSuccess() {
-    // Start Audio on valid login (user interaction confirmed)
-    startAudio();
+    startAudio(); // Coba nyalakan audio
 
     $('display-username').innerText = currentUser.username;
     $('user-role-badge').innerText = currentUser.role === 'admin' ? 'Administrator' : (currentUser.isGuest ? 'Mode Tamu' : 'Pemain Terdaftar');
     
-    if(currentUser.role === 'admin') {
-        $('btn-admin-panel').classList.remove('hidden-screen');
-    } else {
-        $('btn-admin-panel').classList.add('hidden-screen');
+    const adminBtn = $('btn-admin-panel');
+    if (adminBtn) {
+        if(currentUser.role === 'admin') {
+            adminBtn.classList.remove('hidden-screen');
+        } else {
+            adminBtn.classList.add('hidden-screen');
+        }
     }
 
     showScreen('screen-menu');
@@ -202,17 +235,15 @@ function handleLogout() {
     $('auth-username').value = '';
     $('auth-password').value = '';
     $('auth-message').innerText = '';
-    
-    // Stop audio on logout (optional preference)
-    // bgAudio.pause();
-    // audioStarted = false;
-    
     showScreen('screen-auth');
 }
 
 function showAuthError(msg) {
-    $('auth-message').innerText = msg;
-    setTimeout(() => $('auth-message').innerText = '', 3000);
+    const msgEl = $('auth-message');
+    if(msgEl) {
+        msgEl.innerText = msg;
+        setTimeout(() => msgEl.innerText = '', 3000);
+    }
 }
 
 // --- GAMEPLAY LOGIC ---
@@ -261,11 +292,9 @@ function generateQuestion() {
     const diff = gameData.difficulty;
     const type = gameData.type;
 
-    // Determine max number based on difficulty
     let max = diff === 'easy' ? 10 : (diff === 'medium' ? 50 : 100);
     let min = diff === 'hard' ? -50 : 1;
 
-    // Pick Operator
     let ops = [];
     if(type === 'add') ops = ['+'];
     else if(type === 'sub') ops = ['-'];
@@ -277,14 +306,11 @@ function generateQuestion() {
 
     operator = ops[Math.floor(Math.random() * ops.length)];
 
-    // Logic to generate integers
     if (operator === '/') {
-        // Ensure clean division
-        n2 = Math.floor(Math.random() * (max/2)) + 2; // avoid div by 1
+        n2 = Math.floor(Math.random() * (max/2)) + 2; 
         const factor = Math.floor(Math.random() * (max/2)) + 1;
         n1 = n2 * factor; 
     } else if (operator === '*') {
-        // Make multiplication slightly smaller to be solvable
         let mulMax = diff === 'easy' ? 9 : (diff === 'medium' ? 12 : 20);
         n1 = Math.floor(Math.random() * mulMax) + 1;
         n2 = Math.floor(Math.random() * mulMax) + 1;
@@ -292,7 +318,6 @@ function generateQuestion() {
         n1 = Math.floor(Math.random() * (max - min + 1)) + min;
         n2 = Math.floor(Math.random() * (max - min + 1)) + min;
         if(operator === '-' && diff !== 'hard' && n2 > n1) {
-            // Swap to avoid negative in easy/medium
             [n1, n2] = [n2, n1];
         }
     }
@@ -305,12 +330,10 @@ function generateQuestion() {
         case '/': ans = n1 / n2; break;
     }
 
-    // Display signs nicer
     let displayOp = operator;
     if (operator === '*') displayOp = '×';
     if (operator === '/') displayOp = '÷';
 
-    // Handle negative display (e.g., 5 + -3 => 5 - 3)
     let qText = `${n1} ${displayOp} ${n2 < 0 ? '('+n2+')' : n2}`;
 
     gameData.currentQ = { q: qText, a: ans };
@@ -334,14 +357,12 @@ function submitAnswer() {
     if (isNaN(userAns)) return;
 
     if (userAns === gameData.currentQ.a) {
-        // Correct
         const points = gameData.difficulty === 'easy' ? 10 : (gameData.difficulty === 'medium' ? 20 : 30);
         gameData.score += points;
         gameData.correct++;
         $('feedback-msg').innerText = "Benar!";
         $('feedback-msg').className = "h-6 mt-2 font-bold text-sm text-green-500";
     } else {
-        // Wrong
         gameData.score = Math.max(0, gameData.score - 5);
         gameData.wrong++;
         $('feedback-msg').innerText = "Salah!";
@@ -370,10 +391,11 @@ function endGame() {
 }
 
 async function saveGameData() {
+    if(!db) return; // Guard clause jika db error
+
     const scoreRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('scores');
     const userRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('users').doc(currentUser.id);
 
-    // 1. Save Score Entry
     await scoreRef.add({
         userId: currentUser.id,
         username: currentUser.username,
@@ -383,8 +405,6 @@ async function saveGameData() {
         date: new Date().toISOString()
     });
 
-    // 2. Update User Stats & Check Achievements
-    // NOTE: In a real app with high concurrency, use transactions.
     try {
         const uSnap = await userRef.get();
         if(uSnap.exists) {
@@ -393,11 +413,9 @@ async function saveGameData() {
             let newHighScore = Math.max((uData.highScore || 0), gameData.score);
             let currentAchievements = uData.achievements || [];
 
-            // Check achievements
             let newlyUnlocked = [];
             achievementsList.forEach(ach => {
                 if (!currentAchievements.includes(ach.id)) {
-                    // Pass stats + current game score
                     if (ach.req({ gamesPlayed: newGamesPlayed }, gameData.score)) {
                         newlyUnlocked.push(ach);
                         currentAchievements.push(ach.id);
@@ -405,21 +423,18 @@ async function saveGameData() {
                 }
             });
 
-            // Update DB
             await userRef.update({
                 gamesPlayed: newGamesPlayed,
                 highScore: newHighScore,
                 achievements: currentAchievements
             });
 
-            // Update local state
             currentUser.gamesPlayed = newGamesPlayed;
             currentUser.highScore = newHighScore;
             currentUser.achievements = currentAchievements;
 
-            // Show UI notification
             if (newlyUnlocked.length > 0) {
-                const ach = newlyUnlocked[0]; // Show first one
+                const ach = newlyUnlocked[0]; 
                 $('achievement-text').innerText = ach.title;
                 $('achievement-unlocked').classList.remove('hidden');
             }
@@ -429,7 +444,6 @@ async function saveGameData() {
     }
 }
 
-// --- LEADERBOARD LOGIC ---
 async function loadLeaderboard() {
     const filterType = $('lb-filter-type').value;
     const filterDiff = $('lb-filter-diff').value;
@@ -440,9 +454,6 @@ async function loadLeaderboard() {
 
     try {
         let query = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('scores');
-        
-        // Firestore limitations: Compound queries need indexes. 
-        // For this demo, we'll fetch last 100 and filter in JS to avoid index setup errors in preview.
         const snapshot = await query.orderBy('date', 'desc').limit(100).get();
         
         let scores = [];
@@ -450,7 +461,6 @@ async function loadLeaderboard() {
             scores.push(doc.data());
         });
 
-        // Filter & Sort
         scores = scores.filter(s => {
             let matchType = filterType === 'all' || s.type === filterType;
             let matchDiff = filterDiff === 'all' || s.difficulty === filterDiff;
@@ -459,7 +469,6 @@ async function loadLeaderboard() {
 
         scores.sort((a, b) => b.score - a.score);
 
-        // Render Top 20
         scores.slice(0, 20).forEach((s, index) => {
             let medal = '';
             if (index === 0) medal = '🥇';
@@ -497,7 +506,6 @@ function showLeaderboard() {
     loadLeaderboard();
 }
 
-// --- PROFILE LOGIC ---
 function showProfile() {
     showScreen('screen-profile');
     
@@ -529,7 +537,6 @@ function showProfile() {
     });
 }
 
-// --- ADMIN LOGIC ---
 function showAdminPanel() {
     if (!currentUser || currentUser.role !== 'admin') return;
     showScreen('screen-admin');
@@ -547,7 +554,7 @@ async function loadUserList() {
         list.innerHTML = '';
         snapshot.forEach(doc => {
             const u = doc.data();
-            if (u.role === 'admin') return; // Don't show admin in delete list easily
+            if (u.role === 'admin') return; 
 
             const item = `
                 <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm">
@@ -580,5 +587,7 @@ async function deleteUser(uid) {
     }
 }
 
-// Initial Start
-initAuth();
+// Gunakan event listener untuk memastikan DOM siap
+document.addEventListener('DOMContentLoaded', () => {
+    initAuth();
+});
