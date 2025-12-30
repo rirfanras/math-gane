@@ -5,24 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Math Master - Game Matematika</title>
     
-    <!-- External CSS Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
-    <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
 
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 </head>
 <body class="text-gray-800 antialiased select-none">
 
-    <!-- Audio Element -->
     <audio id="bg-music" loop>
         <source src="bgmusic.mp3" type="audio/mpeg">
-        Browser Anda tidak mendukung elemen audio.
     </audio>
 
     <!-- Loading Overlay -->
@@ -33,14 +27,26 @@
         </div>
     </div>
 
-    <!-- Settings/Volume Overlay (Hidden by default) -->
+    <!-- Generic Modal (For Forms) -->
+    <div id="modal-overlay" class="hidden-screen fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4">
+        <div class="glass-panel p-6 w-full max-w-sm relative animate-pop bg-white">
+            <button onclick="closeModal()" class="absolute top-2 right-3 text-gray-500 hover:text-red-500">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+            <h3 id="modal-title" class="text-xl font-bold text-indigo-700 mb-4">Judul Modal</h3>
+            <div id="modal-content">
+                <!-- Content Injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Overlay -->
     <div id="settings-overlay" class="hidden-screen fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm animate-pop">
-        <div class="glass-panel p-6 w-72 text-center relative">
+        <div class="glass-panel p-6 w-72 text-center relative bg-white">
             <button onclick="toggleSettings()" class="absolute top-2 right-3 text-gray-500 hover:text-red-500">
                 <i class="fas fa-times text-xl"></i>
             </button>
             <h3 class="text-xl font-bold text-indigo-700 mb-4">Pengaturan</h3>
-            
             <div class="mb-2">
                 <i class="fas fa-music text-indigo-500 text-2xl mb-2"></i>
                 <p class="text-sm font-bold text-gray-600 mb-2">Volume Musik</p>
@@ -61,24 +67,20 @@
         <div id="screen-auth" class="glass-panel p-8 animate-pop">
             <h1 class="text-4xl font-bold text-center text-indigo-600 mb-2">Math Master</h1>
             <p class="text-center text-gray-500 mb-8">Asah Otakmu Disini!</p>
-
             <div class="flex flex-col gap-4">
                 <input type="text" id="auth-username" placeholder="Username" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:outline-none transition">
                 <input type="password" id="auth-password" placeholder="Password" class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:outline-none transition">
-                
                 <button onclick="handleLogin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg btn-game">
                     <i class="fas fa-sign-in-alt mr-2"></i> Masuk
                 </button>
                 <button onclick="handleRegister()" class="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 rounded-xl shadow-lg btn-game">
                     <i class="fas fa-user-plus mr-2"></i> Buat Akun
                 </button>
-                
                 <div class="relative flex py-2 items-center">
                     <div class="flex-grow border-t border-gray-300"></div>
                     <span class="flex-shrink mx-4 text-gray-400 text-sm">ATAU</span>
                     <div class="flex-grow border-t border-gray-300"></div>
                 </div>
-
                 <button onclick="startGuestMode()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 rounded-xl shadow btn-game">
                     <i class="fas fa-user-secret mr-2"></i> Mode Tamu
                 </button>
@@ -94,9 +96,8 @@
                     <p class="text-xs text-gray-500" id="user-role-badge">Player</p>
                 </div>
                 <div class="flex gap-2">
-                    <!-- Volume Button Menu -->
                     <button onclick="toggleSettings()" class="bg-white border border-indigo-100 text-indigo-500 hover:bg-indigo-50 p-2 rounded-lg shadow-sm">
-                        <i class="fas fa-volume-up"></i>
+                        <i class="fas fa-cog"></i>
                     </button>
                     <button onclick="handleLogout()" class="bg-red-50 text-red-500 hover:bg-red-100 p-2 rounded-lg shadow-sm">
                         <i class="fas fa-sign-out-alt"></i>
@@ -121,8 +122,7 @@
                 </button>
             </div>
 
-            <!-- Admin Button (Hidden by default) -->
-            <button id="btn-admin-panel" onclick="showAdminPanel()" class="hidden-screen w-full bg-gray-800 text-white p-3 rounded-xl shadow-lg btn-game mb-4">
+            <button id="btn-admin-panel" onclick="showAdminDashboard()" class="hidden-screen w-full bg-gray-800 text-white p-3 rounded-xl shadow-lg btn-game mb-4">
                 <i class="fas fa-user-shield mr-2"></i> Panel Admin
             </button>
         </div>
@@ -133,7 +133,6 @@
                 <button onclick="showScreen('screen-menu')" class="mr-4 text-gray-500"><i class="fas fa-arrow-left fa-lg"></i></button>
                 <h2 class="text-2xl font-bold text-gray-700">Pilih Mode</h2>
             </div>
-
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-bold text-gray-600 mb-2">Jenis Operasi</label>
@@ -147,7 +146,6 @@
                         <option value="mix">Semua Operasi (Campuran)</option>
                     </select>
                 </div>
-
                 <div>
                     <label class="block text-sm font-bold text-gray-600 mb-2">Tingkat Kesulitan</label>
                     <div class="grid grid-cols-3 gap-2">
@@ -156,43 +154,28 @@
                         <button onclick="selectDifficulty('hard', this)" class="diff-btn bg-white border-2 border-gray-200 text-gray-500 py-3 rounded-xl font-bold text-sm text-center">Sulit</button>
                     </div>
                 </div>
-
                 <div class="pt-4">
-                    <button onclick="startGame()" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg btn-game text-xl">
-                        Mulai!
-                    </button>
+                    <button onclick="startGame()" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-xl shadow-lg btn-game text-xl">Mulai!</button>
                 </div>
             </div>
         </div>
 
         <!-- GAME SCREEN -->
         <div id="screen-game" class="hidden-screen glass-panel p-6 relative">
-            <!-- Header Game -->
             <div class="flex justify-between items-center mb-8">
                 <div class="bg-gray-100 px-4 py-2 rounded-lg font-bold text-gray-600">
                     Skor: <span id="game-score" class="text-indigo-600 text-xl">0</span>
                 </div>
-                
-                <div class="flex gap-2">
-                    <div class="bg-gray-100 px-4 py-2 rounded-lg font-bold text-gray-600 flex items-center">
-                        <i class="fas fa-clock mr-2"></i>
-                        <span id="game-timer" class="text-red-500 text-xl">60</span>s
-                    </div>
-                    <!-- Volume Button In-Game -->
-                    <button onclick="toggleSettings()" class="bg-white border border-gray-200 text-gray-500 hover:text-indigo-600 w-10 h-10 rounded-lg flex items-center justify-center shadow-sm">
-                        <i class="fas fa-cog"></i>
-                    </button>
+                <div class="bg-gray-100 px-4 py-2 rounded-lg font-bold text-gray-600 flex items-center">
+                    <i class="fas fa-clock mr-2"></i>
+                    <span id="game-timer" class="text-red-500 text-xl">60</span>s
                 </div>
             </div>
-
-            <!-- Question Area -->
             <div class="text-center mb-8">
-                <div id="question-display" class="text-5xl font-bold text-gray-800 mb-4 animate-pop">2 + 2 = ?</div>
+                <div id="question-display" class="text-5xl font-bold text-gray-800 mb-4 animate-pop">?</div>
                 <div id="answer-display" class="text-3xl font-bold text-indigo-500 h-10 border-b-2 border-indigo-200 mx-auto w-32"></div>
                 <p id="feedback-msg" class="h-6 mt-2 font-bold text-sm"></p>
             </div>
-
-            <!-- Numpad -->
             <div class="grid grid-cols-3 gap-3">
                 <button onclick="inputNumber(1)" class="bg-white shadow-md rounded-xl py-4 text-2xl font-bold text-gray-700 btn-game">1</button>
                 <button onclick="inputNumber(2)" class="bg-white shadow-md rounded-xl py-4 text-2xl font-bold text-gray-700 btn-game">2</button>
@@ -203,22 +186,16 @@
                 <button onclick="inputNumber(7)" class="bg-white shadow-md rounded-xl py-4 text-2xl font-bold text-gray-700 btn-game">7</button>
                 <button onclick="inputNumber(8)" class="bg-white shadow-md rounded-xl py-4 text-2xl font-bold text-gray-700 btn-game">8</button>
                 <button onclick="inputNumber(9)" class="bg-white shadow-md rounded-xl py-4 text-2xl font-bold text-gray-700 btn-game">9</button>
-                
                 <button onclick="inputClear()" class="bg-red-100 shadow-md rounded-xl py-4 text-xl font-bold text-red-600 btn-game">C</button>
                 <button onclick="inputNumber(0)" class="bg-white shadow-md rounded-xl py-4 text-2xl font-bold text-gray-700 btn-game">0</button>
                 <button onclick="inputNumber('-')" class="bg-gray-200 shadow-md rounded-xl py-4 text-2xl font-bold text-gray-700 btn-game">-</button>
             </div>
-            
-            <button onclick="submitAnswer()" class="w-full mt-4 bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg btn-game text-xl">
-                Jawab
-            </button>
+            <button onclick="submitAnswer()" class="w-full mt-4 bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg btn-game text-xl">Jawab</button>
         </div>
 
-        <!-- GAME OVER SCREEN -->
+        <!-- GAME RESULT SCREEN -->
         <div id="screen-result" class="hidden-screen glass-panel p-8 text-center animate-pop">
             <h2 class="text-3xl font-bold text-gray-800 mb-2">Waktu Habis!</h2>
-            <p class="text-gray-500 mb-6">Permainan Selesai</p>
-            
             <div class="bg-indigo-50 rounded-2xl p-6 mb-6">
                 <p class="text-sm font-bold text-indigo-400 uppercase tracking-wide">Skor Akhir</p>
                 <div class="text-6xl font-bold text-indigo-600 my-2" id="final-score">0</div>
@@ -227,29 +204,27 @@
                     <span><i class="fas fa-times text-red-500"></i> <span id="final-wrong">0</span></span>
                 </div>
             </div>
-
             <div id="achievement-unlocked" class="hidden mb-6 p-4 bg-yellow-100 border border-yellow-300 rounded-xl text-yellow-800 animate-bounce">
                 <i class="fas fa-medal text-xl mb-1"></i><br>
-                <span class="font-bold">Achievement Terbuka!</span>
-                <p class="text-sm" id="achievement-text">Pencapaian baru</p>
+                <span class="font-bold">Penghargaan Baru!</span>
+                <p class="text-sm" id="achievement-text">Name</p>
             </div>
-
-            <button onclick="showScreen('screen-menu')" class="w-full bg-gray-600 text-white font-bold py-3 rounded-xl shadow mb-3 btn-game">
-                Menu Utama
-            </button>
-            <button onclick="startGame()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow btn-game">
-                Main Lagi
-            </button>
+            <button onclick="showScreen('screen-menu')" class="w-full bg-gray-600 text-white font-bold py-3 rounded-xl shadow mb-3 btn-game">Menu Utama</button>
+            <button onclick="startGame()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow btn-game">Main Lagi</button>
         </div>
 
         <!-- LEADERBOARD SCREEN -->
         <div id="screen-leaderboard" class="hidden-screen glass-panel p-6 animate-pop flex flex-col h-[600px]">
-            <div class="flex items-center mb-4 flex-shrink-0">
-                <button onclick="showScreen('screen-menu')" class="mr-4 text-gray-500"><i class="fas fa-arrow-left fa-lg"></i></button>
-                <h2 class="text-2xl font-bold text-gray-700">Papan Peringkat</h2>
+            <div class="flex items-center justify-between mb-4 flex-shrink-0">
+                <div class="flex items-center">
+                    <button onclick="showScreen('screen-menu')" class="mr-4 text-gray-500"><i class="fas fa-arrow-left fa-lg"></i></button>
+                    <h2 class="text-2xl font-bold text-gray-700">Peringkat</h2>
+                </div>
+                <!-- Admin Add Score Button -->
+                <button id="lb-admin-add" onclick="modalAddScore()" class="hidden text-green-600 bg-green-100 p-2 rounded hover:bg-green-200">
+                    <i class="fas fa-plus"></i>
+                </button>
             </div>
-
-            <!-- Filters -->
             <div class="grid grid-cols-2 gap-2 mb-4 flex-shrink-0">
                 <select id="lb-filter-type" onchange="loadLeaderboard()" class="p-2 rounded-lg border text-sm">
                     <option value="all">Semua Mode</option>
@@ -260,14 +235,12 @@
                     <option value="mix">Campuran</option>
                 </select>
                 <select id="lb-filter-diff" onchange="loadLeaderboard()" class="p-2 rounded-lg border text-sm">
-                    <option value="all">Semua Kesulitan</option>
+                    <option value="all">Semua Level</option>
                     <option value="easy">Mudah</option>
                     <option value="medium">Sedang</option>
                     <option value="hard">Sulit</option>
                 </select>
             </div>
-
-            <!-- List -->
             <div class="flex-grow overflow-y-auto pr-1">
                 <table class="w-full text-left">
                     <thead class="text-xs text-gray-500 uppercase bg-gray-100 sticky top-0">
@@ -277,9 +250,7 @@
                             <th class="px-3 py-2 text-right rounded-tr-lg">Skor</th>
                         </tr>
                     </thead>
-                    <tbody id="leaderboard-list" class="text-sm">
-                        <!-- Items injected via JS -->
-                    </tbody>
+                    <tbody id="leaderboard-list" class="text-sm"></tbody>
                 </table>
                 <p id="lb-loading" class="text-center text-gray-400 mt-4 hidden">Memuat...</p>
             </div>
@@ -291,7 +262,6 @@
                 <button onclick="showScreen('screen-menu')" class="mr-4 text-gray-500"><i class="fas fa-arrow-left fa-lg"></i></button>
                 <h2 class="text-2xl font-bold text-gray-700">Profil Saya</h2>
             </div>
-
             <div class="text-center mb-6">
                 <div class="w-20 h-20 bg-indigo-100 rounded-full mx-auto flex items-center justify-center text-indigo-500 text-3xl font-bold mb-3">
                     <i class="fas fa-user"></i>
@@ -299,7 +269,6 @@
                 <h3 class="text-xl font-bold text-gray-800" id="profile-username">User</h3>
                 <p class="text-sm text-gray-500">Bergabung: <span id="profile-joined">-</span></p>
             </div>
-
             <div class="bg-gray-50 rounded-xl p-4 mb-6">
                 <h4 class="font-bold text-gray-600 mb-3 border-b pb-2">Statistik</h4>
                 <div class="grid grid-cols-2 gap-4 text-center">
@@ -313,39 +282,76 @@
                     </div>
                 </div>
             </div>
-
             <div class="bg-gray-50 rounded-xl p-4">
-                <h4 class="font-bold text-gray-600 mb-3 border-b pb-2">Achievement</h4>
-                <div id="achievement-list" class="space-y-2">
+                <div class="flex justify-between items-center border-b pb-2 mb-3">
+                    <h4 class="font-bold text-gray-600">Penghargaan</h4>
+                    <div class="flex gap-2">
+                        <button onclick="changeProfilePage(-1)" class="text-indigo-500 disabled:text-gray-300" id="btn-prev-page"><i class="fas fa-chevron-left"></i></button>
+                        <span id="page-indicator" class="text-xs text-gray-500 pt-1">1/1</span>
+                        <button onclick="changeProfilePage(1)" class="text-indigo-500 disabled:text-gray-300" id="btn-next-page"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div id="achievement-list" class="space-y-2 min-h-[160px]">
                     <!-- Achievement items injected via JS -->
                 </div>
             </div>
         </div>
 
-        <!-- ADMIN SCREEN -->
-        <div id="screen-admin" class="hidden-screen glass-panel p-6 animate-pop flex flex-col h-[600px]">
+        <!-- ADMIN DASHBOARD -->
+        <div id="screen-admin" class="hidden-screen glass-panel p-6 animate-pop">
+            <div class="flex items-center mb-6">
+                <button onclick="showScreen('screen-menu')" class="mr-4 text-gray-500"><i class="fas fa-arrow-left fa-lg"></i></button>
+                <h2 class="text-2xl font-bold text-gray-700">Admin Panel</h2>
+            </div>
+            <div class="grid grid-cols-1 gap-4">
+                <button onclick="showAdminSection('users')" class="bg-blue-50 text-blue-600 p-6 rounded-xl border border-blue-200 hover:bg-blue-100 flex items-center justify-between">
+                    <span class="font-bold text-lg"><i class="fas fa-users mr-2"></i> Kelola Pengguna</span>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+                <button onclick="showAdminSection('awards')" class="bg-yellow-50 text-yellow-600 p-6 rounded-xl border border-yellow-200 hover:bg-yellow-100 flex items-center justify-between">
+                    <span class="font-bold text-lg"><i class="fas fa-medal mr-2"></i> Kelola Penghargaan</span>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- ADMIN - MANAGE USERS -->
+        <div id="screen-admin-users" class="hidden-screen glass-panel p-6 animate-pop flex flex-col h-[600px]">
             <div class="flex items-center justify-between mb-4 flex-shrink-0">
                 <div class="flex items-center">
-                    <button onclick="showScreen('screen-menu')" class="mr-4 text-gray-500"><i class="fas fa-arrow-left fa-lg"></i></button>
-                    <h2 class="text-2xl font-bold text-gray-700">Admin Panel</h2>
+                    <button onclick="showScreen('screen-admin')" class="mr-4 text-gray-500"><i class="fas fa-arrow-left fa-lg"></i></button>
+                    <h2 class="text-xl font-bold text-gray-700">Kelola Pengguna</h2>
                 </div>
-                <button onclick="loadUserList()" class="text-indigo-600"><i class="fas fa-sync"></i></button>
+                <button onclick="modalAddUser()" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm shadow hover:bg-indigo-700"><i class="fas fa-plus mr-1"></i> Baru</button>
             </div>
-
-            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-2 mb-4 text-xs text-yellow-700">
-                <p>Kelola pengguna terdaftar.</p>
-            </div>
-
             <div class="flex-grow overflow-y-auto">
-                <div id="admin-user-list" class="space-y-2">
-                    <!-- User list -->
+                <div id="admin-user-list" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- ADMIN - MANAGE AWARDS -->
+        <div id="screen-admin-awards" class="hidden-screen glass-panel p-6 animate-pop flex flex-col h-[600px]">
+            <div class="flex items-center justify-between mb-4 flex-shrink-0">
+                <div class="flex items-center">
+                    <button onclick="showScreen('screen-admin')" class="mr-4 text-gray-500"><i class="fas fa-arrow-left fa-lg"></i></button>
+                    <h2 class="text-xl font-bold text-gray-700">Penghargaan</h2>
                 </div>
+                <button onclick="modalAddAward()" class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-sm shadow hover:bg-indigo-700"><i class="fas fa-plus mr-1"></i> Baru</button>
+            </div>
+            <div class="bg-gray-100 p-2 rounded text-xs text-gray-600 mb-4 flex-shrink-0">
+                <strong>Panduan Formula:</strong><br>
+                Gunakan format: <code>kunci operator nilai</code>.<br>
+                Kunci: <code>score</code>, <code>gamesPlayed</code>, <code>difficulty</code>, <code>type</code>.<br>
+                Operator: <code>></code>, <code><</code>, <code>=</code>, <code>>=</code>.<br>
+                Contoh: <code>score > 100</code> atau <code>difficulty = hard, score > 50</code>
+            </div>
+            <div class="flex-grow overflow-y-auto">
+                <div id="admin-award-list" class="space-y-2"></div>
             </div>
         </div>
 
     </div>
 
-    <!-- Main Game Script -->
     <script src="script.js"></script>
 </body>
 </html>
