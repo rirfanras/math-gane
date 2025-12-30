@@ -1,6 +1,13 @@
 // --- CONFIGURATION ---
 // Firebase Config (Placeholder for Environment)
-const firebaseConfig = JSON.parse(__firebase_config);
+const firebaseConfig = {
+  apiKey: "AIzaSyBvd0MSxwgvYA9XJTOy9_kDCMsBhD6Cuus",
+  authDomain: "mathmaster-fnzyz.firebaseapp.com",
+  projectId: "mathmaster-fnzyz",
+  storageBucket: "mathmaster-fnzyz.firebasestorage.app",
+  messagingSenderId: "669657651884",
+  appId: "1:669657651884:web:32315bf8ef9bbbfdac9d09"
+};
 const app = firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore(app);
