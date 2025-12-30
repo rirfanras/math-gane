@@ -51,8 +51,8 @@ const achievementsList = [
 
 // --- SCREEN NAVIGATION ---
 const showScreen = (screenId) => {
-    // Jika kembali ke menu, matikan musik
-    if (screenId === 'screen-menu') {
+    // PROTEKSI: Jika masuk ke menu utama atau setup, matikan musik
+    if (screenId === 'screen-menu' || screenId === 'screen-setup' || screenId === 'screen-auth') {
         stopAudio();
     }
 
@@ -66,7 +66,7 @@ function startAudio() {
     const bgAudio = document.getElementById('bg-music');
     if (!bgAudio) return;
 
-    // Load saved volume
+    // Load saved volume but default to 50%
     const savedVol = localStorage.getItem('mm_volume');
     if(savedVol !== null) {
         bgAudio.volume = parseFloat(savedVol);
@@ -77,14 +77,16 @@ function startAudio() {
         bgAudio.volume = 0.5;
     }
 
-    // Play Audio
-    const playPromise = bgAudio.play();
-    if (playPromise !== undefined) {
-        playPromise.then(() => {
-            audioStarted = true;
-        }).catch(error => {
-            console.log("Audio autoplay dicegah browser:", error);
-        });
+    // Hanya putar jika belum mulai
+    if (!audioStarted) {
+        const playPromise = bgAudio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                audioStarted = true;
+            }).catch(error => {
+                console.log("Audio autoplay dicegah browser (normal di menu):", error);
+            });
+        }
     }
 }
 
@@ -92,7 +94,7 @@ function stopAudio() {
     const bgAudio = document.getElementById('bg-music');
     if (bgAudio) {
         bgAudio.pause();
-        bgAudio.currentTime = 0; // Reset ke awal
+        bgAudio.currentTime = 0; // Reset lagu ke awal
         audioStarted = false;
     }
 }
@@ -106,7 +108,7 @@ function updateVolume(val) {
     const bgAudio = document.getElementById('bg-music');
     if (bgAudio) {
         bgAudio.volume = val;
-        // Kita HAPUS logika auto-play di sini agar musik tidak nyala sendiri saat geser slider di menu
+        // Tidak ada logika play() disini agar aman
     }
     updateVolumeUI(val);
     localStorage.setItem('mm_volume', val);
@@ -120,6 +122,9 @@ function updateVolumeUI(val) {
 // --- AUTHENTICATION LOGIC ---
 
 async function initAuth() {
+    // Pastikan audio mati saat start/refresh
+    stopAudio();
+
     if (!auth) return stopLoading();
 
     try {
@@ -233,7 +238,8 @@ function startGuestMode() {
 }
 
 function loginSuccess() {
-    // startAudio() DIHAPUS dari sini agar menu hening
+    // EKSPLISIT: Pastikan audio mati saat baru login
+    stopAudio();
 
     $('display-username').innerText = currentUser.username;
     $('user-role-badge').innerText = currentUser.role === 'admin' ? 'Administrator' : (currentUser.isGuest ? 'Mode Tamu' : 'Pemain Terdaftar');
@@ -256,7 +262,7 @@ function handleLogout() {
     $('auth-password').value = '';
     $('auth-message').innerText = '';
     
-    stopAudio(); // Pastikan mati saat logout
+    stopAudio(); 
     showScreen('screen-auth');
 }
 
@@ -271,6 +277,8 @@ function showAuthError(msg) {
 // --- GAMEPLAY LOGIC ---
 
 function showGameSetup() {
+    // Pastikan musik mati di layar setup
+    stopAudio();
     showScreen('screen-setup');
 }
 
@@ -287,7 +295,6 @@ function selectDifficulty(diff, btn) {
 function startGame() {
     gameData.type = $('game-type').value;
     
-    // ATUR WAKTU BERDASARKAN KESULITAN
     const timers = {
         'easy': 60,
         'medium': 90,
@@ -308,10 +315,9 @@ function startGame() {
     showScreen('screen-game');
     generateQuestion();
     
-    // MULAI AUDIO DI SINI
+    // HANYA PUTAR AUDIO SAAT GAME DIMULAI
     startAudio();
     
-    // Start Timer
     if (gameData.timerInterval) clearInterval(gameData.timerInterval);
     gameData.timerInterval = setInterval(() => {
         gameData.timer--;
@@ -411,7 +417,7 @@ function endGame() {
     clearInterval(gameData.timerInterval);
     gameData.active = false;
     
-    stopAudio(); // Matikan musik saat game selesai
+    stopAudio(); 
     
     $('final-score').innerText = gameData.score;
     $('final-correct').innerText = gameData.correct;
